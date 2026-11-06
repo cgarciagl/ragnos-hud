@@ -1,0 +1,5 @@
+{
+  "name": "ragnos-hud",
+  "owner": { "name": "Carlos García Trujillo" },
+  "plugins": [{ "name": "ragnos-hud", "source": "./" }]
+}
