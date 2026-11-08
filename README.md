@@ -31,7 +31,16 @@ En la app de escritorio: pulsa + junto al cuadro del prompt, luego Plugins, Add 
 
 ### Actualizar
 
-Si ya lo tienes instalado, desde una shell:
+Si ya lo tienes instalado, en el prompt de una sesión de Claude Code en la terminal:
+
+```
+/plugin marketplace update ragnos-hud
+/plugin manage
+```
+
+El primero trae la versión nueva del marketplace; el segundo abre la pestaña **Installed**, donde eliges `ragnos-hud` para actualizarlo. Luego ejecuta `/reload-plugins`.
+
+Desde una shell:
 
 ```
 claude plugin marketplace update ragnos-hud
