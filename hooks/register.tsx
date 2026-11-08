@@ -584,17 +584,21 @@ export const register: Register = on => {
           ]
         : [limitsHead(), hot(T('sin datos de límites aún'.padEnd(inner), C.faint))]
 
+    const errRows = s.status === 'error' ? [row('> ERR ' + (s.error ?? '').slice(0, inner - 6), '', C.bad)] : []
+    const v5hRows = [
+      title('VENTANA 5H', 0),
+      row('peticiones', count(s.h5.requests)),
+      row('tokens', count(total(s.h5))),
+      sparkline(),
+      edge([T('pulso ', C.label), T(ekg(), s.h5.requests ? C.ok : C.faint)]),
+    ]
     const full =
       s.status === 'loading'
         ? [row(`> conectando${'.'.repeat(t % 4)}`, '', C.warn)]
         : [
-            ...(s.status === 'error' ? [row('> ERR ' + (s.error ?? '').slice(0, inner - 6), '', C.bad)] : []),
+            ...errRows,
             ...limitsSection,
-            title('VENTANA 5H', 0),
-            row('peticiones', count(s.h5.requests)),
-            row('tokens', count(total(s.h5))),
-            sparkline(),
-            edge([T('pulso ', C.label), T(ekg(), s.h5.requests ? C.ok : C.faint)]),
+            ...v5hRows,
             title('SEMANA 7D', 1),
             row('peticiones', count(s.d7.requests)),
             row('tokens', count(total(s.d7))),
@@ -608,30 +612,36 @@ export const register: Register = on => {
             ...(s.skipped ? [row('logs >4MiB', `omitidos ${s.skipped}`, C.warn)] : []),
           ]
 
-    // Modo compacto: si el panel completo no cabe en el alto de la terminal,
-    // solo LÍMITES y lo esencial de la CACHÉ (calor y aciertos).
+    // Distribución según el alto disponible (4 filas de marco y cabecera + 1 de margen):
+    //  1) completo + mapa (+ tanque si sobra)
+    //  2) intermedio: LÍMITES + VENTANA 5H + mapa (sin 7D, sesión ni caché)
+    //  3) completo sin mapa
+    //  4) compacto: LÍMITES + calor y aciertos de la caché
+    const HEAT_H = 12
     const vpRows = e.viewport?.rows ?? 0
     const ready = s.status !== 'loading'
-    const compact = ready && vpRows > 0 && 4 + full.length + 1 > vpRows
-    const body = compact
-      ? (() => {
-          const cr = cacheRows()
-          return [
-            ...(s.status === 'error' ? [row('> ERR ' + (s.error ?? '').slice(0, inner - 6), '', C.bad)] : []),
-            ...limitsSection,
-            title('CACHÉ', 3),
-            cr[0],
-            cr[cr.length - 1],
-          ]
-        })()
-      : full
+    const fits = (n: number) => vpRows <= 0 || 4 + n + 1 <= vpRows
+    const mid = [...errRows, ...limitsSection, ...v5hRows]
+    let body: any[]
+    let withHeat = false
+    if (!ready) body = full
+    else if (vpRows > 0 && fits(full.length + HEAT_H)) {
+      body = full
+      withHeat = true
+    } else if (vpRows > 0 && fits(mid.length + HEAT_H)) {
+      body = mid
+      withHeat = true
+    } else if (fits(full.length)) body = full
+    else {
+      const cr = cacheRows()
+      body = [...errRows, ...limitsSection, title('CACHÉ', 3), cr[0], cr[cr.length - 1]]
+    }
+    const heatmap = withHeat ? heatRows() : []
 
-    // En el alto sobrante: primero el heatmap (12 filas) y luego el tanque de aciertos.
-    let spare = vpRows - 4 - body.length - 1
-    const heatmap = ready && !compact && spare >= 12 ? heatRows() : []
-    spare -= heatmap.length
+    // Tanque de aciertos solo con el panel completo y alto sobrante.
+    const spare = vpRows - 4 - body.length - heatmap.length - 1
     const avail = Math.min(8, spare)
-    const scope = ready && !compact && avail >= 4 ? [title('ACIERTOS', 4), ...scopeRows(avail - 2)] : []
+    const scope = ready && body === full && avail >= 4 ? [title('ACIERTOS', 4), ...scopeRows(avail - 2)] : []
 
     return (
       <Box flexDirection="column" width={W} flexShrink={0} flexGrow={0}>

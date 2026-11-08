@@ -53,7 +53,7 @@ La nueva versión se carga en la siguiente sesión, o al instante con `/reload-p
 
 El panel se abre solo al empezar una sesión en terminales anchas. Si no aparece, ábrelo con `/ragnos`.
 
-Si la terminal es baja, el panel pasa a **modo compacto** y muestra solo los límites y lo esencial de la caché. El mapa 7D y el tanque de aciertos aparecen cuando sobra alto.
+El panel se adapta al alto de la terminal. Con mucho espacio muestra todo, más el mapa 7D y el tanque de aciertos. Con espacio intermedio prioriza el mapa: muestra límites, ventana 5H y el mapa, sin las secciones de 7D, sesión y caché. Si la terminal es baja, pasa a **modo compacto**, con solo los límites y lo esencial de la caché.
 
 ## Limitaciones
 
