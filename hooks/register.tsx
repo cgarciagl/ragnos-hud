@@ -78,8 +78,12 @@ async function scan($: any) {
     const sessionId = String(await $.session.id()).toLowerCase()
     const tp = transcriptPath.split(/[\\/]/).pop()?.toLowerCase() ?? ''
     let sessionFound = false
-    const env = async (k: string) => String((await $.env.get(k)) ?? '')
-    const root = projectsRoot(await env('CLAUDE_CONFIG_DIR'), await env('USERPROFILE'), await env('HOME'))
+    // $.env.get exige el nombre como literal: Claude Code rechaza el módulo si es una variable.
+    const root = projectsRoot(
+      String((await $.env.get('CLAUDE_CONFIG_DIR')) ?? ''),
+      String((await $.env.get('USERPROFILE')) ?? ''),
+      String((await $.env.get('HOME')) ?? ''),
+    )
     const now: number = await $.clock.now()
     const h5 = empty()
     const d7 = empty()

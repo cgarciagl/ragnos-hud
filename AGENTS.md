@@ -14,6 +14,8 @@ Si cambias la forma de `Stats` en `types/index.d.ts`, sube también el `shape` d
 
 ## Antes de hacer commit
 
+- Ejecuta `claude plugin validate .` si tienes Claude Code disponible. Si falla, Claude Code no carga el mod.
+- Llama a `$.env.get` siempre con el nombre de la variable como texto literal (`$.env.get('HOME')`), nunca con una variable o un helper: Claude Code rechaza el módulo completo.
 - Comprueba que `hooks/register.tsx` compila, por ejemplo con `npx esbuild hooks/register.tsx --loader:.tsx=tsx --jsx=preserve > /dev/null`.
 - Cada línea del panel debe medir exactamente 30 columnas (`SIDEBAR_W`).
 - Si cambias lo que muestra el panel o cómo se instala, actualiza el `README.md`.
