@@ -524,6 +524,26 @@ export const register: Register = on => {
       )
       const peakTxt = peak >= 0 ? `${DAYS.charAt(new Date(nowMs - (6 - Math.floor(peak / 24)) * 86_400_000).getDay())} ${peak % 24}h · ${top}` : '--'
       out.push(row('pico', peakTxt, C.pulse))
+      // Resumen: hoy vs. media de los días con actividad, y la hora más fuerte de la semana.
+      const perDay = Array.from({ length: 7 }, (_, r) => data.slice(r * 24, r * 24 + 24).reduce((a, b) => a + b, 0))
+      const today = perDay[6]!
+      const active = perDay.filter(v => v > 0)
+      const avg = active.length ? active.reduce((a, b) => a + b, 0) / active.length : 0
+      const trend = !avg ? ' ' : today > avg * 1.1 ? '▲' : today < avg * 0.9 ? '▼' : '='
+      const trendColor = trend === '▲' ? C.accent : trend === '▼' ? C.label : C.text
+      out.push(
+        edge([
+          T('hoy ', C.label),
+          T(count(today), C.text, { bold: true }),
+          T(trend, trendColor, { bold: t % 4 < 2 }),
+          T(' '.repeat(Math.max(1, inner - 4 - count(today).length - 1 - `media ${count(Math.round(avg))}`.length)), C.faint),
+          T('media ', C.label),
+          T(count(Math.round(avg)), C.text, { bold: true }),
+        ]),
+      )
+      const perHour = Array.from({ length: 24 }, (_, h) => perDay.reduce((a, _v, r) => a + (data[r * 24 + h] ?? 0), 0))
+      const bestH = Math.max(...perHour) > 0 ? perHour.indexOf(Math.max(...perHour)) : -1
+      out.push(row('hora fuerte', `${bestH >= 0 ? `${bestH}:00` : '--'} · ${active.length}/7d`, C.accent))
       return out
     }
 
@@ -602,9 +622,9 @@ export const register: Register = on => {
         })()
       : full
 
-    // En el alto sobrante: primero el heatmap (10 filas) y luego el tanque de aciertos.
+    // En el alto sobrante: primero el heatmap (12 filas) y luego el tanque de aciertos.
     let spare = vpRows - 4 - body.length - 1
-    const heatmap = ready && !compact && spare >= 10 ? heatRows() : []
+    const heatmap = ready && !compact && spare >= 12 ? heatRows() : []
     spare -= heatmap.length
     const avail = Math.min(8, spare)
     const scope = ready && !compact && avail >= 4 ? [title('ACIERTOS', 4), ...scopeRows(avail - 2)] : []
