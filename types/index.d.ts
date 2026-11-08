@@ -24,6 +24,7 @@ export type Stats = {
   ttlMs: number
   lastCtx: number
   sessionFound: boolean
+  sessionSkipped?: boolean
   hits: number[]
 }
 

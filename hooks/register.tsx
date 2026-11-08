@@ -60,6 +60,7 @@ function add(b: Bucket, u: any) {
 let scanning = false
 let scanFinishedAt = 0
 let transcriptPath = ''
+let timersStarted = false
 
 async function scan($: any) {
   if (scanning) return
@@ -77,6 +78,7 @@ async function scan($: any) {
     const spark: number[] = new Array(SPARK_SLOTS).fill(0)
     const seen = new Set<string>()
     let skipped = 0
+    let sessionSkipped = false
     let lastAt = 0
     let lastCtx = 0
     let ttlMs = 300_000
@@ -84,7 +86,11 @@ async function scan($: any) {
 
     // 1) Reunir los logs de los últimos 7 días.
     const candidates: { path: string; name: string; size: number; mtimeMs: number }[] = []
-    for (const dir of await $.fs.list(root)) {
+    let dirs: any[] = []
+    try {
+      dirs = await $.fs.list(root)
+    } catch {}
+    for (const dir of dirs) {
       if (dir.kind !== 'dir') continue
       let files: any[] = []
       try {
@@ -127,6 +133,7 @@ async function scan($: any) {
       {
         if (f.size > MAX_READ) {
           skipped++
+          if (f.path === sessionPath) sessionSkipped = true
           continue
         }
         let text = ''
@@ -134,6 +141,7 @@ async function scan($: any) {
           text = await $.fs.read(f.path)
         } catch {
           skipped++
+          if (f.path === sessionPath) sessionSkipped = true
           continue
         }
         const isSession = f.path === sessionPath
@@ -182,7 +190,7 @@ async function scan($: any) {
       limits = (await $.session.usage()).rateLimits
     } catch {}
     scanFinishedAt = await $.clock.now()
-    await update($, stats, () => ({ status: 'ready' as const, scannedAt: now, skipped, h5, d7, session, limits, spark, lastAt, ttlMs, lastCtx, sessionFound, hits: hits.slice(-INNER) }))
+    await update($, stats, () => ({ status: 'ready' as const, scannedAt: now, skipped, h5, d7, session, limits, spark, lastAt, ttlMs, lastCtx, sessionFound, sessionSkipped, hits: hits.slice(-INNER) }))
   } catch (err: any) {
     await update($, stats, s => ({ ...s, status: 'error' as const, error: String(err?.message ?? err) }))
   } finally {
@@ -206,8 +214,11 @@ export const register: Register = on => {
     await $.command.register({ name: 'ragnos', description: 'Abre el panel Ragnos HUD de uso de tokens' })
     void $.ui.open({ id: PANE, title: 'RAGNOS', columns: SIDEBAR_W })
     void scan($)
-    $.clock.every(60_000, () => void scan($))
-    $.clock.every(FRAME_MS, () => void update($, tick, n => (n + 1) % 1_000_000))
+    if (!timersStarted) {
+      timersStarted = true
+      $.clock.every(60_000, () => void scan($))
+      $.clock.every(FRAME_MS, () => void update($, tick, n => (n + 1) % 1_000_000))
+    }
     return next(e)
   })
 
@@ -271,11 +282,14 @@ export const register: Register = on => {
     }
 
     // Barra que se llena animada, con la punta parpadeando.
-    const gauge = (label: string, p: number) => {
+    // higherIsBetter: para métricas donde un % alto es bueno (aciertos de caché).
+    const gauge = (label: string, p: number, higherIsBetter = false) => {
       const shown = p * ease
       const len = inner - label.length - 8
       const n = Math.round((Math.min(100, shown) / 100) * len)
-      const c = p >= 85 ? C.bad : p >= 60 ? C.warn : C.ok
+      const c = higherIsBetter
+        ? (p >= 80 ? C.ok : p >= 50 ? C.warn : C.bad)
+        : (p >= 85 ? C.bad : p >= 60 ? C.warn : C.ok)
       const tip = n > 0 && t % 2 === 0
       return edge([
         T(label + ' ', C.label),
@@ -341,7 +355,7 @@ export const register: Register = on => {
       const p = Math.min(100, l.percentUsed)
       const resets = l.resetsAt ? Date.parse(l.resetsAt) : NaN
       const elapsed = Number.isFinite(resets) ? Math.max(0, Math.min(1, 1 - (resets - nowMs) / windowMs)) : NaN
-      const pctText = `${Math.round(p * ease)}%${Number.isFinite(elapsed) ? (p / 100 > elapsed ? '▲' : '▼') : ' '}`
+      const pctText = `${Math.round(p * ease)}%${Number.isFinite(elapsed) ? (p / 100 > elapsed ? '▲' : p / 100 < elapsed ? '▼' : '=') : ' '}`
       const len = inner - label.length - 1 - 6
       const fill = Math.round(((p * ease) / 100) * len)
       const mark = Number.isFinite(elapsed) ? Math.min(len - 1, Math.round(elapsed * len)) : -1
@@ -388,7 +402,7 @@ export const register: Register = on => {
       rows.push(row('leído', count(sec.cacheRead)))
       rows.push(row('escrito', count(sec.cacheWrite)))
       rows.push(row('últ. contexto', count(s.lastCtx)))
-      rows.push(gauge('acierto', hit))
+      rows.push(gauge('acierto', hit, true))
       return rows
     }
 
@@ -484,6 +498,7 @@ export const register: Register = on => {
             row('tokens', count(total(s.d7))),
             title('SESIÓN', 2),
             ...(s.sessionFound ? [] : [row('log sesión', 'no encontrado', C.bad)]),
+            ...(s.sessionSkipped ? [row('log sesión', '>4MiB omitido', C.warn)] : []),
             row('peticiones', count(sec.requests)),
             row('tokens', count(total(sec))),
             title('CACHÉ', 3),
