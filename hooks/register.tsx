@@ -9,6 +9,9 @@ const H5 = 5 * 3600_000
 const D7 = 7 * 24 * 3600_000
 const MAX_READ = 4 * 1024 * 1024
 const FRAME_MS = 250
+// Filas que el viewport incluye pero el panel no recibe (prompt, barra de estado, cabecera
+// del panel). Medido en Claude Code v2.1.319: el panel recibe ~10 filas menos.
+const ROW_MARGIN = 10
 
 // Colores del tema activo de Claude Code: el panel cambia con /theme.
 const C = {
@@ -409,7 +412,7 @@ export const register: Register = on => {
       rows.push(row('leído', count(sec.cacheRead)))
       rows.push(row('escrito', count(sec.cacheWrite)))
       rows.push(row('últ. contexto', count(s.lastCtx)))
-      rows.push(gauge('acierto', hit, true))
+      rows.push(secIn ? gauge('acierto', hit, true) : row('acierto', 'sin datos', C.faint))
       return rows
     }
 
@@ -423,9 +426,10 @@ export const register: Register = on => {
       const data = s.hits
       const avg = data.length ? data.reduce((a, b) => a + b, 0) / data.length : 0
       const last = data.length ? data[data.length - 1]! : 0
-      const c = avg >= 0.8 ? C.ok : avg >= 0.5 ? C.warn : C.bad
+      // Sin peticiones en la sesión: tanque vacío en gris, no en rojo.
+      const c = !data.length ? C.faint : avg >= 0.8 ? C.ok : avg >= 0.5 ? C.warn : C.bad
       const level = avg * ease * h * 4
-      const label = `${Math.round(avg * ease * 100)}%`
+      const label = data.length ? `${Math.round(avg * ease * 100)}%` : 'sin datos'
       const labelRow = Math.floor(h / 2)
       const labelAt = Math.floor((inner - label.length) / 2)
       const out: any[] = []
@@ -452,7 +456,11 @@ export const register: Register = on => {
         }
         out.push(edge(cells))
       }
-      out.push(row(`última ${Math.round(last * 100)}%`, `${data.length} pet.`, last >= 0.8 ? C.ok : last >= 0.5 ? C.warn : C.bad))
+      out.push(
+        data.length
+          ? row(`última ${Math.round(last * 100)}%`, `${data.length} pet.`, last >= 0.8 ? C.ok : last >= 0.5 ? C.warn : C.bad)
+          : row('última --', '0 pet.', C.faint),
+      )
       return out
     }
 
@@ -514,11 +522,11 @@ export const register: Register = on => {
             ...(s.skipped ? [row('logs >4MiB', `omitidos ${s.skipped}`, C.warn)] : []),
           ]
 
-    // Si el panel completo no cabe en el alto (4 filas de marco y cabecera + 1 de margen),
+    // Si el panel completo no cabe en el alto (4 filas de marco y cabecera + ROW_MARGIN),
     // modo compacto: LÍMITES y lo esencial de la CACHÉ (calor y aciertos).
     const vpRows = e.viewport?.rows ?? 0
     const ready = s.status !== 'loading'
-    const compact = ready && vpRows > 0 && 4 + full.length + 1 > vpRows
+    const compact = ready && vpRows > 0 && 4 + full.length + ROW_MARGIN > vpRows
     const body = compact
       ? (() => {
           const cr = cacheRows()
@@ -527,7 +535,7 @@ export const register: Register = on => {
       : full
 
     // Tanque de aciertos en el alto sobrante (hasta 14 filas).
-    const avail = Math.min(14, vpRows - 4 - body.length - 1)
+    const avail = Math.min(14, vpRows - 4 - body.length - ROW_MARGIN)
     const scope = ready && !compact && avail >= 4 ? [title('ACIERTOS', 4), ...scopeRows(avail - 2)] : []
 
     return (
