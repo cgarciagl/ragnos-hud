@@ -29,6 +29,14 @@ const SPARK_SLOTS = INNER - SPARK_LABEL.length
 const SLOT_MS = H5 / SPARK_SLOTS
 const BARS = '▁▂▃▄▅▆▇█'
 
+// Carpeta de logs: respeta CLAUDE_CONFIG_DIR (como Claude Code) y si no, ~/.claude.
+function projectsRoot(configDir: string, userProfile: string, home: string): string {
+  const norm = (p: string) => p.trim().replace(/\\/g, '/').replace(/\/+$/, '')
+  const cfg = norm(configDir)
+  if (cfg) return `${cfg}/projects`
+  return `${norm(userProfile) || norm(home)}/.claude/projects`
+}
+
 const empty = (): Bucket => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, requests: 0, usd: 0 })
 const initial: Stats = {
   status: 'loading',
@@ -69,8 +77,8 @@ async function scan($: any) {
     const sessionId = String(await $.session.id()).toLowerCase()
     const tp = transcriptPath.split(/[\\/]/).pop()?.toLowerCase() ?? ''
     let sessionFound = false
-    const home = String((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '').replace(/\\/g, '/')
-    const root = `${home}/.claude/projects`
+    const env = async (k: string) => String((await $.env.get(k)) ?? '')
+    const root = projectsRoot(await env('CLAUDE_CONFIG_DIR'), await env('USERPROFILE'), await env('HOME'))
     const now: number = await $.clock.now()
     const h5 = empty()
     const d7 = empty()
@@ -203,7 +211,6 @@ const total = (b: Bucket) => b.input + b.cacheRead + b.cacheWrite + b.output
 
 const HEADER = '▓▒░ RAGNOS HUD ░▒▓'
 const HEAT = ['∿', '≈', '~', '≈']
-const SCOPE = '⣀⣤⣶⣿'
 const GLITCH = '#%&@!?'
 const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const BEAT = '──────╱╲╱‾╲_──────'
