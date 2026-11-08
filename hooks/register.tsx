@@ -52,10 +52,9 @@ const initial: Stats = {
   lastCtx: 0,
   sessionFound: false,
   hits: [],
-  heat: [],
 }
 
-const stats = atom({ plugin: 'ragnos-hud', key: 'stats' } as const, initial, { shape: 'stats-6' })
+const stats = atom({ plugin: 'ragnos-hud', key: 'stats' } as const, initial, { shape: 'stats-7' })
 const tick = atom({ plugin: 'ragnos-hud', key: 'tick' } as const, 0)
 
 function add(b: Bucket, u: any) {
@@ -96,12 +95,6 @@ async function scan($: any) {
     let lastCtx = 0
     let ttlMs = 300_000
     const hits: number[] = []
-    // Heatmap: 7 días (fila 6 = hoy) × 24 horas locales.
-    const heat: number[] = new Array(7 * 24).fill(0)
-    const midnight = new Date(now)
-    midnight.setHours(0, 0, 0, 0)
-    const mid = midnight.getTime()
-
     // 1) Reunir los logs de los últimos 7 días.
     const candidates: { path: string; name: string; size: number; mtimeMs: number }[] = []
     let dirs: any[] = []
@@ -178,15 +171,7 @@ async function scan($: any) {
           if (seen.has(key)) continue
           seen.add(key)
           const ago = now - Date.parse(j.timestamp)
-          if (ago <= D7) {
-            add(d7, u)
-            const at = Date.parse(j.timestamp)
-            const dAgo = at >= mid ? 0 : Math.ceil((mid - at) / 86_400_000)
-            if (dAgo <= 6) {
-              const k = (6 - dAgo) * 24 + new Date(at).getHours()
-              heat[k] = (heat[k] ?? 0) + 1
-            }
-          }
+          if (ago <= D7) add(d7, u)
           if (ago <= H5) {
             add(h5, u)
             const slot = SPARK_SLOTS - 1 - Math.floor(Math.max(0, ago) / SLOT_MS)
@@ -216,7 +201,7 @@ async function scan($: any) {
       limits = (await $.session.usage()).rateLimits
     } catch {}
     scanFinishedAt = await $.clock.now()
-    await update($, stats, () => ({ status: 'ready' as const, scannedAt: now, skipped, h5, d7, session, limits, spark, lastAt, ttlMs, lastCtx, sessionFound, sessionSkipped, hits: hits.slice(-INNER), heat }))
+    await update($, stats, () => ({ status: 'ready' as const, scannedAt: now, skipped, h5, d7, session, limits, spark, lastAt, ttlMs, lastCtx, sessionFound, sessionSkipped, hits: hits.slice(-INNER) }))
   } catch (err: any) {
     await update($, stats, s => ({ ...s, status: 'error' as const, error: String(err?.message ?? err) }))
   } finally {
@@ -474,83 +459,6 @@ export const register: Register = on => {
       return out
     }
 
-    // Heatmap 7 días × 24 h: aparece en diagonal al actualizar, un haz recorre las horas,
-    // la hora actual parpadea y la celda pico titila.
-    const DAYS = 'DLMXJVS'
-    const HEAT_GLYPHS = '·░▒▓█'
-    const HEAT_COLORS: Color[] = [C.faint, C.ok, C.ok, C.accent, C.pulse]
-    const heatRows = () => {
-      const data = s.heat?.length === 168 ? s.heat : new Array(168).fill(0)
-      const top = Math.max(...data)
-      const max = Math.max(1, top)
-      const peak = top > 0 ? data.indexOf(top) : -1
-      const curHour = new Date(nowMs).getHours()
-      const beam = t % 32 // 24 columnas + pausa
-      const out: any[] = [title('MAPA 7D', 5)]
-      for (let r = 0; r < 7; r++) {
-        const isToday = r === 6
-        const day = new Date(nowMs - (6 - r) * 86_400_000)
-        const cells = [T(DAYS.charAt(day.getDay()) + ' ', isToday ? C.accent : C.label, { bold: isToday })]
-        for (let h = 0; h < 24; h++) {
-          const i = r * 24 + h
-          const v = data[i] ?? 0
-          if (isToday && h > curHour) {
-            cells.push(T(' ', C.faint))
-            continue
-          }
-          // Revelado en diagonal: de arriba-izquierda a abajo-derecha.
-          if ((h + r * 2) / 36 > ease * 1.05) {
-            cells.push(T(' ', C.faint))
-            continue
-          }
-          const lvl = v ? Math.max(1, Math.ceil((v / max) * 4)) : 0
-          if (isToday && h === curHour) {
-            cells.push(T(lvl ? HEAT_GLYPHS.charAt(lvl) : '▪', t % 4 < 2 ? C.accent : C.text, { bold: true }))
-          } else if (i === peak) {
-            cells.push(T(t % 6 < 3 ? '█' : '▓', C.pulse, { bold: true }))
-          } else if (h === beam) {
-            cells.push(T(HEAT_GLYPHS.charAt(lvl), lvl ? C.text : C.frame, { bold: lvl > 0 }))
-          } else {
-            cells.push(T(HEAT_GLYPHS.charAt(lvl), HEAT_COLORS[lvl]!))
-          }
-        }
-        out.push(edge(cells))
-      }
-      // Eje de horas con un ▲ bajo la hora actual.
-      const axis = new Array(24).fill(' ')
-      for (const [pos, lbl] of [[0, '0'], [6, '6'], [12, '12'], [18, '18']] as const)
-        for (let k = 0; k < lbl.length; k++) axis[pos + k] = lbl.charAt(k)
-      out.push(
-        edge([
-          T('  ', C.faint),
-          ...axis.map((ch, h) => (h === curHour ? T('▲', C.accent, { bold: t % 4 < 2 }) : T(ch, C.faint))),
-        ]),
-      )
-      const peakTxt = peak >= 0 ? `${DAYS.charAt(new Date(nowMs - (6 - Math.floor(peak / 24)) * 86_400_000).getDay())} ${peak % 24}h · ${top}` : '--'
-      out.push(row('pico', peakTxt, C.pulse))
-      // Resumen: hoy vs. media de los días con actividad, y la hora más fuerte de la semana.
-      const perDay = Array.from({ length: 7 }, (_, r) => data.slice(r * 24, r * 24 + 24).reduce((a, b) => a + b, 0))
-      const today = perDay[6]!
-      const active = perDay.filter(v => v > 0)
-      const avg = active.length ? active.reduce((a, b) => a + b, 0) / active.length : 0
-      const trend = !avg ? ' ' : today > avg * 1.1 ? '▲' : today < avg * 0.9 ? '▼' : '='
-      const trendColor = trend === '▲' ? C.accent : trend === '▼' ? C.label : C.text
-      out.push(
-        edge([
-          T('hoy ', C.label),
-          T(count(today), C.text, { bold: true }),
-          T(trend, trendColor, { bold: t % 4 < 2 }),
-          T(' '.repeat(Math.max(1, inner - 4 - count(today).length - 1 - `media ${count(Math.round(avg))}`.length)), C.faint),
-          T('media ', C.label),
-          T(count(Math.round(avg)), C.text, { bold: true }),
-        ]),
-      )
-      const perHour = Array.from({ length: 24 }, (_, h) => perDay.reduce((a, _v, r) => a + (data[r * 24 + h] ?? 0), 0))
-      const bestH = Math.max(...perHour) > 0 ? perHour.indexOf(Math.max(...perHour)) : -1
-      out.push(row('hora fuerte', `${bestH >= 0 ? `${bestH}:00` : '--'} · ${active.length}/7d`, C.accent))
-      return out
-    }
-
     const dur = (ms: number) => {
       const m = Math.max(0, Math.floor(ms / 60_000))
       const d = Math.floor(m / 1440)
@@ -612,36 +520,21 @@ export const register: Register = on => {
             ...(s.skipped ? [row('logs >4MiB', `omitidos ${s.skipped}`, C.warn)] : []),
           ]
 
-    // Distribución según el alto disponible (4 filas de marco y cabecera + 1 de margen):
-    //  1) completo + mapa (+ tanque si sobra)
-    //  2) intermedio: LÍMITES + VENTANA 5H + mapa (sin 7D, sesión ni caché)
-    //  3) completo sin mapa
-    //  4) compacto: LÍMITES + calor y aciertos de la caché
-    const HEAT_H = 12
+    // Si el panel completo no cabe en el alto (4 filas de marco y cabecera + 1 de margen),
+    // modo compacto: LÍMITES y lo esencial de la CACHÉ (calor y aciertos).
     const vpRows = e.viewport?.rows ?? 0
     const ready = s.status !== 'loading'
-    const fits = (n: number) => vpRows <= 0 || 4 + n + 1 <= vpRows
-    const mid = [...errRows, ...limitsSection, ...v5hRows]
-    let body: any[]
-    let withHeat = false
-    if (!ready) body = full
-    else if (vpRows > 0 && fits(full.length + HEAT_H)) {
-      body = full
-      withHeat = true
-    } else if (vpRows > 0 && fits(mid.length + HEAT_H)) {
-      body = mid
-      withHeat = true
-    } else if (fits(full.length)) body = full
-    else {
-      const cr = cacheRows()
-      body = [...errRows, ...limitsSection, title('CACHÉ', 3), cr[0], cr[cr.length - 1]]
-    }
-    const heatmap = withHeat ? heatRows() : []
+    const compact = ready && vpRows > 0 && 4 + full.length + 1 > vpRows
+    const body = compact
+      ? (() => {
+          const cr = cacheRows()
+          return [...errRows, ...limitsSection, title('CACHÉ', 3), cr[0], cr[cr.length - 1]]
+        })()
+      : full
 
-    // Tanque de aciertos solo con el panel completo y alto sobrante.
-    const spare = vpRows - 4 - body.length - heatmap.length - 1
-    const avail = Math.min(8, spare)
-    const scope = ready && body === full && avail >= 4 ? [title('ACIERTOS', 4), ...scopeRows(avail - 2)] : []
+    // Tanque de aciertos en el alto sobrante (hasta 14 filas).
+    const avail = Math.min(14, vpRows - 4 - body.length - 1)
+    const scope = ready && !compact && avail >= 4 ? [title('ACIERTOS', 4), ...scopeRows(avail - 2)] : []
 
     return (
       <Box flexDirection="column" width={W} flexShrink={0} flexGrow={0}>
@@ -649,7 +542,6 @@ export const register: Register = on => {
         {edge([T(' '.repeat(left), C.accent), ...header, T(' '.repeat(Math.max(0, inner - left - HEADER.length)), C.accent)])}
         {edge(T((' '.repeat(statusPad) + statusLine).padEnd(inner), statusColor, { bold: true, dim: !blinkOn }))}
         {body}
-        {heatmap}
         {scope}
         {frame('╚', '═', '╝')}
       </Box>

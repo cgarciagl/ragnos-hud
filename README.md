@@ -6,10 +6,9 @@ Panel lateral para Claude Code, con estética cyberpunk y los colores del tema a
 - **Ventana 5H:** peticiones, tokens, sparkline de actividad cada 15 min y un pulso animado.
 - **Semana 7D:** peticiones y tokens.
 - **Sesión y caché:** peticiones, tokens, tiempo que la caché sigue caliente (5 m o 1 h), tokens leídos y escritos, y el % de aciertos de caché de toda la sesión.
-- **Mapa 7D:** heatmap animado de 7 días × 24 horas con tu actividad, la hora actual parpadeando y el pico resaltado, más un resumen: peticiones de hoy frente a la media diaria (▲/▼), hora más fuerte de la semana y días con actividad.
 - **Aciertos:** si sobra alto en la terminal, un tanque animado con el % de aciertos promedio de las últimas peticiones de la sesión.
 
-Los datos salen de la sesión actual y de los logs locales en `~/.claude/projects/`. Nada sale de tu equipo.
+Las barras de límites vienen de la API y reflejan tu cuenta completa. Las cifras de ventana 5H, semana 7D, sesión y caché salen de los logs locales en `~/.claude/projects/`, así que solo cuentan el uso en ese equipo. Nada sale de tu equipo.
 
 ## Instalación
 
@@ -53,7 +52,7 @@ La nueva versión se carga en la siguiente sesión, o al instante con `/reload-p
 
 El panel se abre solo al empezar una sesión en terminales anchas. Si no aparece, ábrelo con `/ragnos`.
 
-El panel se adapta al alto de la terminal. Con mucho espacio muestra todo, más el mapa 7D y el tanque de aciertos. Con espacio intermedio prioriza el mapa: muestra límites, ventana 5H y el mapa, sin las secciones de 7D, sesión y caché. Si la terminal es baja, pasa a **modo compacto**, con solo los límites y lo esencial de la caché.
+Si la terminal es baja, el panel pasa a **modo compacto** y muestra solo los límites y lo esencial de la caché. Si sobra alto, aparece el tanque de aciertos, que crece con el espacio disponible.
 
 ## Limitaciones
 
