@@ -26,6 +26,8 @@ export type Stats = {
   sessionFound: boolean
   sessionSkipped?: boolean
   hits: number[]
+  /** 7 × 24: fila 6 = hoy, columna = hora local. */
+  heat?: number[]
 }
 
 declare module 'claude-code' {

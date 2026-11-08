@@ -6,6 +6,7 @@ Panel lateral para Claude Code, con estética cyberpunk y los colores del tema a
 - **Ventana 5H:** peticiones, tokens, sparkline de actividad cada 15 min y un pulso animado.
 - **Semana 7D:** peticiones y tokens.
 - **Sesión y caché:** peticiones, tokens, tiempo que la caché sigue caliente (5 m o 1 h), tokens leídos y escritos, y el % de aciertos de caché de toda la sesión.
+- **Mapa 7D:** heatmap animado de 7 días × 24 horas con tu actividad, la hora actual parpadeando y el pico resaltado.
 - **Aciertos:** si sobra alto en la terminal, un tanque animado con el % de aciertos promedio de las últimas peticiones de la sesión.
 
 Los datos salen de la sesión actual y de los logs locales en `~/.claude/projects/`. Nada sale de tu equipo.
@@ -31,6 +32,8 @@ En la app de escritorio: pulsa + junto al cuadro del prompt, luego Plugins, Add 
 ## Uso
 
 El panel se abre solo al empezar una sesión en terminales anchas. Si no aparece, ábrelo con `/ragnos`.
+
+Si la terminal es baja, el panel pasa a **modo compacto** y muestra solo los límites y lo esencial de la caché. El mapa 7D y el tanque de aciertos aparecen cuando sobra alto.
 
 ## Limitaciones
 
