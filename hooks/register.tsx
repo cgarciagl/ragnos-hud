@@ -43,7 +43,6 @@ const initial: Stats = {
   scannedAt: 0,
   skipped: 0,
   h5: empty(),
-  d7: empty(),
   session: empty(),
   limits: [],
   spark: [],
@@ -54,7 +53,7 @@ const initial: Stats = {
   hits: [],
 }
 
-const stats = atom({ plugin: 'ragnos-hud', key: 'stats' } as const, initial, { shape: 'stats-7' })
+const stats = atom({ plugin: 'ragnos-hud', key: 'stats' } as const, initial, { shape: 'stats-8' })
 const tick = atom({ plugin: 'ragnos-hud', key: 'tick' } as const, 0)
 
 function add(b: Bucket, u: any) {
@@ -85,7 +84,6 @@ async function scan($: any) {
     )
     const now: number = await $.clock.now()
     const h5 = empty()
-    const d7 = empty()
     const session = empty()
     const spark: number[] = new Array(SPARK_SLOTS).fill(0)
     const seen = new Set<string>()
@@ -171,7 +169,6 @@ async function scan($: any) {
           if (seen.has(key)) continue
           seen.add(key)
           const ago = now - Date.parse(j.timestamp)
-          if (ago <= D7) add(d7, u)
           if (ago <= H5) {
             add(h5, u)
             const slot = SPARK_SLOTS - 1 - Math.floor(Math.max(0, ago) / SLOT_MS)
@@ -201,7 +198,7 @@ async function scan($: any) {
       limits = (await $.session.usage()).rateLimits
     } catch {}
     scanFinishedAt = await $.clock.now()
-    await update($, stats, () => ({ status: 'ready' as const, scannedAt: now, skipped, h5, d7, session, limits, spark, lastAt, ttlMs, lastCtx, sessionFound, sessionSkipped, hits: hits.slice(-INNER) }))
+    await update($, stats, () => ({ status: 'ready' as const, scannedAt: now, skipped, h5, session, limits, spark, lastAt, ttlMs, lastCtx, sessionFound, sessionSkipped, hits: hits.slice(-INNER) }))
   } catch (err: any) {
     await update($, stats, s => ({ ...s, status: 'error' as const, error: String(err?.message ?? err) }))
   } finally {
@@ -507,9 +504,6 @@ export const register: Register = on => {
             ...errRows,
             ...limitsSection,
             ...v5hRows,
-            title('SEMANA 7D', 1),
-            row('peticiones', count(s.d7.requests)),
-            row('tokens', count(total(s.d7))),
             title('SESIÓN', 2),
             ...(s.sessionFound ? [] : [row('log sesión', 'no encontrado', C.bad)]),
             ...(s.sessionSkipped ? [row('log sesión', '>4MiB omitido', C.warn)] : []),

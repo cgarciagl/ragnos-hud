@@ -4,11 +4,10 @@ Panel lateral para Claude Code, con estética cyberpunk y los colores del tema a
 
 - **Límites:** barras de uso de las ventanas de 5 h y 7 días, con un marcador `┃` del tiempo transcurrido para saber si vas por delante (▲) o por detrás (▼) del ritmo esperado, y cuánto falta para cada reinicio.
 - **Ventana 5H:** peticiones, tokens, sparkline de actividad cada 15 min y un pulso animado.
-- **Semana 7D:** peticiones y tokens.
 - **Sesión y caché:** peticiones, tokens, tiempo que la caché sigue caliente (5 m o 1 h), tokens leídos y escritos, y el % de aciertos de caché de toda la sesión.
 - **Aciertos:** si sobra alto en la terminal, un tanque animado con el % de aciertos promedio de las últimas peticiones de la sesión.
 
-Las barras de límites vienen de la API y reflejan tu cuenta completa. Las cifras de ventana 5H, semana 7D, sesión y caché salen de los logs locales en `~/.claude/projects/`, así que solo cuentan el uso en ese equipo. Nada sale de tu equipo.
+Las barras de límites vienen de la API y reflejan tu cuenta completa. Las cifras de ventana 5H, sesión y caché salen de los logs locales en `~/.claude/projects/`, así que solo cuentan el uso en ese equipo. Nada sale de tu equipo.
 
 ## Instalación
 

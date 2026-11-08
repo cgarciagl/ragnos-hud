@@ -15,7 +15,6 @@ export type Stats = {
   scannedAt: number
   skipped: number
   h5: Bucket
-  d7: Bucket
   session: Bucket
   sessionUsd?: number
   limits: Limit[]
