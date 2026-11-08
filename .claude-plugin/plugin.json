@@ -1,1 +1,1 @@
-{ "name": "ragnos-hud", "version": "0.2.0", "description": "Ragnos HUD: panel lateral con uso de tokens, cache y rate limits", "types": "./types/index.d.ts", "license": "MIT", "author": { "name": "Carlos García Trujillo" } }
+{ "name": "ragnos-hud", "version": "0.2.1", "description": "Ragnos HUD: panel lateral con uso de tokens, cache y rate limits", "types": "./types/index.d.ts", "license": "MIT", "author": { "name": "Carlos García Trujillo" } }
